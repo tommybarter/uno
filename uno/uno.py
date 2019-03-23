@@ -16,7 +16,7 @@ class GameWindow:
         self.background_image=PhotoImage(file=self.get_background_image())
 
         w = self.background_image.width() 
-        h = self.background_image.height() + 50
+        h = self.background_image.height() + 20
         self.master.geometry("%dx%d+0+0" % (w, h))
         self.master.title("UNO GAME")        
         self.master.resizable(False, False)
@@ -63,11 +63,11 @@ class GameWindow:
         noOfPlayers = int(optsDialog.noOfPlayers)
         players = []
 
-        player1 = Player(optsDialog.player1)
+        player1 = Player(optsDialog.player1, 1)
         players.append(player1)
 
         if noOfPlayers > 1:
-            player2 = Player(optsDialog.player2)
+            player2 = Player(optsDialog.player2, 2)
             players.append(player2)     
         
         self.discardPile = DiscardPile() 
@@ -76,7 +76,7 @@ class GameWindow:
         # Clear Board
         self.startButton.destroy()
 
-        self.game = Game(players, self.discardPile, self.drawPile, self.canvas)
+        self.game = Game(players, self.discardPile, self.drawPile, self.canvas, self.status)
 
         self.status.set("CURRENT PLAYER: " + self.game.currentPlayer.name)
              
@@ -163,8 +163,9 @@ class DialogNewGame:
 
 # Outlining the actions of the player
 class Player:
-    def __init__(self, playerName, cpu=False, playerhand=None, playerTurn=False):
+    def __init__(self, playerName, playerID, cpu=False, playerhand=None, playerTurn=False):
         self.name = playerName
+        self.playerid = playerID
         self.hand = None
         self.turn = False
         
@@ -208,10 +209,10 @@ class Card:
         self.faceup = fac
 
     def get_name(self):
-        return self.value + " of " + self.colour
+        return self.colour + " " + self.value
 
     def get_image(self):
-        pass
+        return os.path.join(os.getcwd(), 'Cards', self.colour, self.colour+self.value+".png")        
 
     @staticmethod
     def get_reverse_image():           
@@ -228,11 +229,11 @@ class Deck():
     def __init__(self, thesecards=[]):
         self.cards = thesecards
     
-    def removeCards(self, cards):
-        pass
+    def removeCards(self, id):
+        del self.cards[id]
 
-    def addCards(self, cards):
-        pass
+    def addCards(self, card):
+        self.cards.append(card)
 
     def takeCards(self, no_of_cards):
         somecards = self.cards[:no_of_cards]
@@ -273,18 +274,18 @@ class FullDeck(Deck):
             self.cards.append(Card(wild, Card.ALL))        
 
 class Hand(Deck):
-   def __init__(self,thesecards=None):
+   def __init__(self,thesecards=[]):
        self.cards = thesecards
        super()
 
 class DrawPile(Deck):
-    def __init__(self,thesecards=None):
+    def __init__(self,thesecards=[]):
        self.cards = thesecards
        super()
        
 
 class DiscardPile(Deck):
-    def __init__(self,thesecards=None):
+    def __init__(self,thesecards=[]):
         self.cards = thesecards
         super()
        
@@ -296,43 +297,127 @@ class DiscardPile(Deck):
 
 
 class Game:    
-    def __init__(self, theseplayers,thisDiscardPile,thisDrawPile,theCanvas):
+    def __init__(self, theseplayers,thisDiscardPile,thisDrawPile,theCanvas,theStatus):
         self.players = theseplayers
         self.discardPile = thisDiscardPile
         self.drawPile = thisDrawPile
         self.canvas = theCanvas
+        self.status = theStatus
+
+        self.player1Pile = []
+        self.player2Pile = []
+
+        self.player1PileImages = []
+        self.player2PileImages = []
 
         # Shuffle the cards
         self.drawPile.shuffleCards()
 
         # Give players some cards
         for player in self.players:
-            player.setHand(Hand(self.drawPile.takeCards(7)))
-            print(player.name)
-            for card in player.hand.getCards():
-                print(card.get_name())
+            player.setHand(Hand(self.drawPile.takeCards(7)))            
             
         # Select first player
         self.currentPlayer = self.chooseFirstPlayer()
+        self.currentPlayer.setTurn(True)
 
         # Setup Board
+
+        # Draw Pile Area
         self.reverse_image=PhotoImage(file=Card.get_reverse_image())
-        self.drawPileHolder = Label(self.canvas, text="Draw Pile", image=self.reverse_image,compound=BOTTOM)
-        self.drawPileHolder.place(relx=0.9, rely=0.5, anchor=CENTER)
+        self.drawPileArea = Label(self.canvas, text="Draw Pile", image=self.reverse_image,compound=BOTTOM)
+        self.drawPileArea.place(relx=0.9, rely=0.5, anchor=CENTER)
 
+        # Discard Pile Area
         self.empty_image=PhotoImage(file=Card.get_empty_image())
-        self.drawPileHolder = Label(self.canvas, text="Discard Pile", image=self.empty_image,compound=BOTTOM)
-        self.drawPileHolder.place(relx=0.5, rely=0.5, anchor=CENTER)
+        self.discardPileArea = Label(self.canvas, text="Discard Pile", image=self.empty_image,compound=BOTTOM)
+        self.discardPileArea.place(relx=0.5, rely=0.5, anchor=CENTER)
 
-        # First move
+        # Player 1 Area        
+        self.player1Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="orange",pady=10,highlightthickness=2,text=self.players[0].name+"'s Cards")
+        player1Scroll = Scrollbar(self.player1Frame)
+        self.player1Frame.pack(side=BOTTOM)
+        self.player1Frame.pack_propagate(False)       
+        self.drawCards(self.players[0], self.player1Frame, self.player1Pile, self.player1PileImages)
+        
+
+        #self.player1Canvas = Canvas(self.canvas, height=200, width=1000)
+        #self.player1Canvas.config(scrollregion=self.player1Canvas.bbox(ALL))
+        #self.player1Canvas.pack(anchor=S)
+
+        # Player 2 Area
+        self.player2Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="coral",pady=10,highlightthickness=2,text=self.players[1].name+"'s Cards")
+        player2Scroll = Scrollbar(self.player1Frame)
+        self.player2Frame.pack(side=TOP)
+        self.player2Frame.pack_propagate(False)
+        self.drawCards(self.players[1], self.player2Frame, self.player2Pile, self.player2PileImages)
+
+        # Disable cards
+        self.disablePlayersCards()
+
+    def drawCards(self, player, frame, pile, imagepile):
+        imagepile.clear()
+        pile.clear()
+
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+        for idx,card in enumerate(player.hand.getCards()):
+            card_image = PhotoImage(file=card.get_image())
+            imagepile.append(card_image)
+            card_button = Button(frame,image=imagepile[idx],compound=BOTTOM,text=card.get_name(),padx=5,command=lambda i=idx: self.cardCallback(i,player,pile))
+            pile.append(card_button)
+            pile[idx].pack(side=LEFT)        
+    
+    def cardCallback(self, id, player,pile):
+        selected_card = player.getHand().getCards()[id]
+        
+        # Update discard pile
+        self.discardPile.addCards(selected_card)
+        cimg = PhotoImage(file=selected_card.get_image())
+        self.discardPileArea.configure(image=cimg)
+        self.discardPileArea.image = cimg
+        
+
+        # Update players hand
+        player.getHand().removeCards(id)
+                
+        # Update players pile
+        if player.playerid == 1:
+            self.drawCards(player, self.player1Frame, pile, self.player1PileImages)
+        else:
+            self.drawCards(player, self.player2Frame, pile, self.player2PileImages)
+
+        print(self.discardPile.getNumberofCards())
         self.next_turn()
 
-        
     def checkMove(self,card,discard=True):
         pass
 
     def next_turn(self):
-        pass
+        for player in self.players:            
+            if player.turn:
+                player.setTurn(False)
+            else:
+                player.setTurn(True)
+                self.currentPlayer = player            
+        self.disablePlayersCards()
+        self.status.set("CURRENT PLAYER: " + self.currentPlayer.name)
+
+    def disablePlayersCards(self):
+        cards = []
+        if self.currentPlayer.playerid == 1:
+            for card in self.player1Pile:
+                card.config(state="normal")
+            for card in self.player2Pile:
+                card.config(state="disabled")
+        else:
+            cards = self.player2Pile
+            for card in self.player2Pile:
+                card.config(state="normal")
+            for card in self.player1Pile:
+                card.config(state="disabled")
+        
 
     def chooseFirstPlayer(self):
         return random.choice(self.players)
