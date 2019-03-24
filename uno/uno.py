@@ -47,9 +47,7 @@ class GameWindow:
         gameMenu = Menu(menu)
         menu.add_cascade(label="Game", menu=gameMenu)
         gameMenu.add_command(label="New", command=self.callbackNewGame)
-        gameMenu.add_command(label="Restart", command=self.callbackRestartGame)
-        gameMenu.add_separator()
-        gameMenu.add_command(label="Options", command=self.callbackRestartGame)
+        gameMenu.add_command(label="Restart", command=self.callbackRestartGame)        
         gameMenu.add_separator()
         gameMenu.add_command(label="Exit", command=master.quit)
 
@@ -92,28 +90,7 @@ class GameWindow:
 
     def callbackRestartGame(self):
         print ("restart game")
-
-   
-
-class DialogOptions:
-    
-    def __init__(self, parent):
-
-        top = self.top = Toplevel(parent)
-
-        Label(top, text="Value").pack()
-
-        self.e = Entry(top)
-        self.e.pack(padx=5)
-
-        b = Button(top, text="OK", command=self.ok)
-        b.pack(pady=5)
-
-    def ok(self):
-        
-        self.top.destroy()
-
-
+ 
 class StatusBar(Frame):
 
     def __init__(self, master):
@@ -230,7 +207,10 @@ class Deck():
     def __init__(self, thesecards=[]):
         self.cards = thesecards
     
-    def removeCards(self, id):
+    def removeCards(self):
+        self.cards.clear()
+
+    def removeCard(self, id):
         del self.cards[id]
 
     def addCard(self, card):
@@ -240,7 +220,12 @@ class Deck():
         self.cards.extend(cards)
 
     def takeCards(self, no_of_cards):
-        somecards = self.cards[:no_of_cards]
+        if not self.cards:
+            return []
+        if len(self.cards) < no_of_cards:
+            somecards = cards
+        else:
+            somecards = self.cards[:no_of_cards]
         del self.cards[:no_of_cards]
         # If only 1 card, return as a single object
         if len(somecards) == 1:
@@ -302,10 +287,7 @@ class DrawPile(Deck):
 class DiscardPile(Deck):
     def __init__(self,thesecards=[]):
         self.cards = thesecards
-        super()
-       
-
-       #self.fac=True
+        super()         
 
     def convertToDrawPile():
         pass
@@ -345,20 +327,14 @@ class Game:
         self.reverse_image=PhotoImage(file=Card.get_reverse_image())
         self.drawPileArea = Button(self.canvas, text="Draw Pile", image=self.reverse_image,compound=BOTTOM,command=self.drawPileCallback)
         self.drawPileArea.place(relx=0.9, rely=0.5, anchor=CENTER)
+        self.updateDrawPile()
 
         # Discard Pile Area
         self.empty_image=PhotoImage(file=Card.get_empty_image())
         self.discardPileArea = Label(self.canvas, text="Discard Pile", image=self.empty_image,compound=BOTTOM)
-        self.discardPileArea.place(relx=0.5, rely=0.5, anchor=CENTER)
-
-        # Put card onto the discard pile
-        firstcard = self.drawPile.takeCards(1)
+        self.discardPileArea.place(relx=0.5, rely=0.5, anchor=CENTER)       
         
-        while firstcard.value == "Draw4" and firstcard.colour == "Wild":            
-            self.drawPile.addCard(firstcard)
-            self.drawPile.shuffleCards()
-            firstcard = self.drawPile.takeCards(1)
-        self.updateDiscardPile(firstcard)
+        self.placeFirstCard()
 
         # Player 1 Area        
         self.player1Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="orange",pady=10,highlightthickness=2,text=self.players[0].name+"'s Cards")
@@ -371,16 +347,28 @@ class Game:
         #self.player1Canvas = Canvas(self.canvas, height=200, width=1000)
         #self.player1Canvas.config(scrollregion=self.player1Canvas.bbox(ALL))
         #self.player1Canvas.pack(anchor=S)
-
-        # Player 2 Area
-        self.player2Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="coral",pady=10,highlightthickness=2,text=self.players[1].name+"'s Cards")
-        player2Scroll = Scrollbar(self.player1Frame)
-        self.player2Frame.pack(side=TOP)
-        self.player2Frame.pack_propagate(False)
-        self.drawCards(self.players[1], self.player2Frame, self.player2Pile, self.player2PileImages)
+        
+        if len(self.players) > 1:
+            # Player 2 Area
+            self.player2Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="coral",pady=10,highlightthickness=2,text=self.players[1].name+"'s Cards")
+            player2Scroll = Scrollbar(self.player1Frame)
+            self.player2Frame.pack(side=TOP)
+            self.player2Frame.pack_propagate(False)
+            self.drawCards(self.players[1], self.player2Frame, self.player2Pile, self.player2PileImages)
 
         # Disable cards
         self.disablePlayersCards()
+
+    def placeFirstCard(self):
+        # Put card onto the discard pile
+        firstcard = self.drawPile.takeCards(1)
+        
+        while firstcard.value == "Draw4" and firstcard.colour == "Wild":            
+            self.drawPile.addCard(firstcard)
+            self.drawPile.shuffleCards()
+            firstcard = self.drawPile.takeCards(1)
+        self.updateDiscardPile(firstcard)
+        self.updateDrawPile()
 
     def drawCards(self, player, frame, pile, imagepile):
         imagepile.clear()
@@ -408,7 +396,12 @@ class Game:
         self.discardPile.addCard(selected_card)
         cimg = PhotoImage(file=selected_card.get_image())
         self.discardPileArea.configure(image=cimg)
-        self.discardPileArea.image = cimg        
+        self.discardPileArea.image = cimg
+        self.discardPileArea.config(text="Discard Pile - " + str(self.discardPile.getNumberofCards()))
+
+    def updateDrawPile(self):
+        # Update draw pile        
+        self.drawPileArea.config(text="Draw Pile - " + str(self.drawPile.getNumberofCards()))
 
     def cardCallback(self, id, player,pile):
         selected_card = player.getHand().getCards()[id]
@@ -420,9 +413,10 @@ class Game:
 
         # Update discard pile
         self.updateDiscardPile(selected_card)        
+        self.updateDrawPile()
 
         # Update players hand
-        player.getHand().removeCards(id)
+        player.getHand().removeCard(id)
                 
         # Update players pile
         self.drawPlayersCards(player)                              
@@ -434,10 +428,11 @@ class Game:
                 no_of_cards = 2
                 if selected_card.value == "Draw4":
                     no_of_cards = 4
-                cards = self.drawPile.takeCards(no_of_cards)
-                self.getNextPlayer().getHand().addCards(cards)
-                self.drawPlayersCards(self.getNextPlayer())
-                self.disablePlayersCards()
+                if self.checkDrawPileEmpty(no_of_cards):
+                    cards = self.drawPile.takeCards(no_of_cards)
+                    self.getNextPlayer().getHand().addCards(cards)
+                    self.drawPlayersCards(self.getNextPlayer())
+                    self.disablePlayersCards()
                 self.next_turn(True)
         else:            
             self.next_turn(False)
@@ -445,14 +440,28 @@ class Game:
 
     def drawPileCallback(self):
         # Take card from the draw pile
-        newcard = self.drawPile.takeCards(1)
-        # Add to player's hand
-        self.currentPlayer.hand.addCard(newcard)
-        self.drawPlayersCards(self.currentPlayer)       
+        if self.checkDrawPileEmpty(1):
+            newcard = self.drawPile.takeCards(1)
+            # Add to player's hand
+            self.currentPlayer.hand.addCard(newcard)
+            self.drawPlayersCards(self.currentPlayer)       
 
+        self.updateDrawPile()
         self.next_turn()
 
-    
+    def checkDrawPileEmpty(self, no_of_cards):
+        if (self.discardPile.getNumberofCards() + self.drawPile.getNumberofCards()) < no_of_cards:
+            self.disableDrawPile()
+            return False
+
+        if self.drawPile.getNumberofCards() < no_of_cards:
+            self.drawPile.addCards(self.discardPile.getCards())
+            self.discardPile.removeCards()
+            self.drawPile.shuffleCards()
+            self.placeFirstCard()
+            self.enableDrawPile()
+
+        return True
 
     def checkMove(self,card,discardCard):
         # Check discard pile empty
@@ -467,7 +476,8 @@ class Game:
         else:
             return False
 
-    def next_turn(self, skipPlayers=False):   
+    def next_turn(self, skipPlayers=False):  
+        self.updateDrawPile()
         if not self.currentPlayer.hand.getCards():
             self.status.set("WIN - " + self.currentPlayer.name)
             self.endGame()
@@ -484,6 +494,12 @@ class Game:
                 self.currentPlayer = player          
         self.disablePlayersCards()
         self.status.set("CURRENT PLAYER: " + self.currentPlayer.name)
+
+    def disableDrawPile(self):
+        self.drawPileArea.config(state="disabled")
+    
+    def enableDrawPile(self):
+        self.drawPileArea.config(state="normal")
 
     def disablePlayersCards(self):
         cards = []
