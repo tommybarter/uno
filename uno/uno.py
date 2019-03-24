@@ -471,6 +471,7 @@ class Game:
         if not self.currentPlayer.hand.getCards():
             self.status.set("WIN - " + self.currentPlayer.name)
             self.endGame()
+            return
 
         if skipPlayers:
             return
@@ -509,11 +510,9 @@ class Game:
         return players[0]
 
     def endGame(self):
-        messagebox.showinfo("WINNER", self.currentPlayer.name + " WINS!")
-        self.drawPileArea.destroy()
-        self.discardPileArea.destroy()
-        self.player1Frame.destroy()
-        self.player2Frame.destroy()
+        messagebox.showinfo("WINNER", self.currentPlayer.name + " WINS!")        
+        self.status.destroy()
+        app.canvas.destroy()
         app.__init__(root)
 
 
