@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import simpledialog
 from tkinter import ttk
+from tkinter import messagebox
 
 import os, os.path
 import random
@@ -232,13 +233,21 @@ class Deck():
     def removeCards(self, id):
         del self.cards[id]
 
-    def addCards(self, card):
+    def addCard(self, card):
         self.cards.append(card)
+
+    def addCards(self, cards):
+        self.cards.extend(cards)
 
     def takeCards(self, no_of_cards):
         somecards = self.cards[:no_of_cards]
         del self.cards[:no_of_cards]
-        return somecards
+        # If only 1 card, return as a single object
+        if len(somecards) == 1:
+            return somecards[0]
+        else:
+            # Return list
+            return somecards
     
     def turnAllCardsUp():
         pass
@@ -254,6 +263,12 @@ class Deck():
 
     def getNumberofCards(self):
         return len(self.cards)
+
+    def getTopCard(self):
+        if not self.cards:
+            return None
+        else:
+            return self.cards[-1]
 
 class FullDeck(Deck):
     
@@ -310,6 +325,9 @@ class Game:
         self.player1PileImages = []
         self.player2PileImages = []
 
+        self.SKIPCARDS = ["Skip","Reverse","Draw2","Draw4"]
+        self.DRAWCARDS = ["Draw2","Draw4"]
+        
         # Shuffle the cards
         self.drawPile.shuffleCards()
 
@@ -325,13 +343,22 @@ class Game:
 
         # Draw Pile Area
         self.reverse_image=PhotoImage(file=Card.get_reverse_image())
-        self.drawPileArea = Label(self.canvas, text="Draw Pile", image=self.reverse_image,compound=BOTTOM)
+        self.drawPileArea = Button(self.canvas, text="Draw Pile", image=self.reverse_image,compound=BOTTOM,command=self.drawPileCallback)
         self.drawPileArea.place(relx=0.9, rely=0.5, anchor=CENTER)
 
         # Discard Pile Area
         self.empty_image=PhotoImage(file=Card.get_empty_image())
         self.discardPileArea = Label(self.canvas, text="Discard Pile", image=self.empty_image,compound=BOTTOM)
         self.discardPileArea.place(relx=0.5, rely=0.5, anchor=CENTER)
+
+        # Put card onto the discard pile
+        firstcard = self.drawPile.takeCards(1)
+        
+        while firstcard.value == "Draw4" and firstcard.colour == "Wild":            
+            self.drawPile.addCard(firstcard)
+            self.drawPile.shuffleCards()
+            firstcard = self.drawPile.takeCards(1)
+        self.updateDiscardPile(firstcard)
 
         # Player 1 Area        
         self.player1Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="orange",pady=10,highlightthickness=2,text=self.players[0].name+"'s Cards")
@@ -369,38 +396,91 @@ class Game:
             pile.append(card_button)
             pile[idx].pack(side=LEFT)        
     
+    def drawPlayersCards(self, player):
+        # Update players pile
+        if player.playerid == 1:
+            self.drawCards(player, self.player1Frame, self.player1Pile, self.player1PileImages)
+        else:
+            self.drawCards(player, self.player2Frame, self.player2Pile, self.player2PileImages)
+
+    def updateDiscardPile(self, selected_card):
+        # Update discard pile
+        self.discardPile.addCard(selected_card)
+        cimg = PhotoImage(file=selected_card.get_image())
+        self.discardPileArea.configure(image=cimg)
+        self.discardPileArea.image = cimg        
+
     def cardCallback(self, id, player,pile):
         selected_card = player.getHand().getCards()[id]
         
+        # Check for legal move
+        if not self.checkMove(selected_card, self.discardPile.getTopCard()):
+            self.status.set("Illegal move - try again")
+            return
+
         # Update discard pile
-        self.discardPile.addCards(selected_card)
-        cimg = PhotoImage(file=selected_card.get_image())
-        self.discardPileArea.configure(image=cimg)
-        self.discardPileArea.image = cimg
-        
+        self.updateDiscardPile(selected_card)        
 
         # Update players hand
         player.getHand().removeCards(id)
                 
         # Update players pile
-        if player.playerid == 1:
-            self.drawCards(player, self.player1Frame, pile, self.player1PileImages)
-        else:
-            self.drawCards(player, self.player2Frame, pile, self.player2PileImages)
+        self.drawPlayersCards(player)                              
 
-        print(self.discardPile.getNumberofCards())
+        # Check if card played is a skip card        
+        if selected_card.value in self.SKIPCARDS:
+            # Check if card played is a draw card
+            if selected_card.value in self.DRAWCARDS:
+                no_of_cards = 2
+                if selected_card.value == "Draw4":
+                    no_of_cards = 4
+                cards = self.drawPile.takeCards(no_of_cards)
+                self.getNextPlayer().getHand().addCards(cards)
+                self.drawPlayersCards(self.getNextPlayer())
+                self.disablePlayersCards()
+                self.next_turn(True)
+        else:            
+            self.next_turn(False)
+
+
+    def drawPileCallback(self):
+        # Take card from the draw pile
+        newcard = self.drawPile.takeCards(1)
+        # Add to player's hand
+        self.currentPlayer.hand.addCard(newcard)
+        self.drawPlayersCards(self.currentPlayer)       
+
         self.next_turn()
 
-    def checkMove(self,card,discard=True):
-        pass
+    
 
-    def next_turn(self):
-        for player in self.players:            
-            if player.turn:
+    def checkMove(self,card,discardCard):
+        # Check discard pile empty
+        if not discardCard:
+            return True
+        # Check colour
+        elif card.colour == discardCard.colour or card.colour == "Wild" or discardCard.colour == "Wild":
+            return True
+        # Check value
+        elif card.value == discardCard.value:
+            return True
+        else:
+            return False
+
+    def next_turn(self, skipPlayers=False):   
+        if not self.currentPlayer.hand.getCards():
+            self.status.set("WIN - " + self.currentPlayer.name)
+            self.endGame()
+
+        if skipPlayers:
+            return
+
+        for player in self.players:                 
+            if player.turn:                
                 player.setTurn(False)
             else:
                 player.setTurn(True)
-                self.currentPlayer = player            
+                self.currentPlayer = player          
         self.disablePlayersCards()
         self.status.set("CURRENT PLAYER: " + self.currentPlayer.name)
 
@@ -421,9 +501,20 @@ class Game:
 
     def chooseFirstPlayer(self):
         return random.choice(self.players)
+    
+    def getNextPlayer(self):
+        for player in self.players:                 
+            if not player.turn:
+                return player 
+        return players[0]
 
     def endGame(self):
-        pass
+        messagebox.showinfo("WINNER", self.currentPlayer.name + " WINS!")
+        self.drawPileArea.destroy()
+        self.discardPileArea.destroy()
+        self.player1Frame.destroy()
+        self.player2Frame.destroy()
+        app.__init__(root)
 
 
 root = Tk()
