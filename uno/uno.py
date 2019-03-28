@@ -116,7 +116,7 @@ class DialogNewGame:
         self.cbNoOfPlayers = ttk.Combobox(top, text="Number of Players", values=[1,2], justify='left', state='readonly')
         self.cbNoOfPlayers.pack(padx=5)
         self.cbNoOfPlayers.current(1)
-        
+
         Label(top, text="Names").pack()
 
         self.ePlayer1 = Entry(top)
@@ -136,6 +136,30 @@ class DialogNewGame:
         self.noOfPlayers = self.cbNoOfPlayers.get()
         self.player1 = self.ePlayer1.get()
         self.player2 = self.ePlayer2.get()
+
+        self.top.destroy()
+
+class DialogChooseColour:
+
+    def __init__(self, parent):
+
+        top = self.top = Toplevel(parent)
+        self.colourChoice = Card.COLOURS[0]
+
+        Label(top, text="Choose a colour").pack()
+        self.colours = ttk.Combobox(top, text="Colour", values=Card.COLOURS[:-1], justify='left', state='readonly')
+        self.colours.pack(padx=5)
+        self.colours.current(0)
+
+        b = Button(top, text="OK", command=self.ok)
+        b.pack(pady=5)
+
+        self.colours.focus()
+
+
+    def ok(self):
+
+        self.colourChoice = self.colours.get()        
 
         self.top.destroy()
 
@@ -174,11 +198,11 @@ class Card:
     WILD = 13
     DRAW4 = 14
 
-    COLOURS = ["Red","Yellow","Green","Blue","Wild"]
-    RED = 0
-    YELLOW = 1
-    GREEN = 2
-    BLUE = 3
+    COLOURS = ["Blue", "Green", "Red", "Yellow", "Wild"]
+    BLUE = 0
+    GREEN = 1
+    RED = 2
+    YELLOW = 3
     ALL = 4
 
     def __init__(self,val,col,fac=False):
@@ -265,9 +289,9 @@ class FullDeck(Deck):
         wilds = [Card.WILD,Card.WILD,Card.WILD,Card.WILD,Card.DRAW4,Card.DRAW4,Card.DRAW4,Card.DRAW4]
        
         for card in colours:
-            self.cards.append(Card(card, Card.RED))
-            self.cards.append(Card(card, Card.GREEN))
             self.cards.append(Card(card, Card.BLUE))
+            self.cards.append(Card(card, Card.GREEN))
+            self.cards.append(Card(card, Card.RED))
             self.cards.append(Card(card, Card.YELLOW))
 
         for wild in wilds:
@@ -309,6 +333,7 @@ class Game:
 
         self.SKIPCARDS = ["Skip","Reverse","Draw2","Draw4"]
         self.DRAWCARDS = ["Draw2","Draw4"]
+        self.WILDCARDS = ["Wild", "Draw4"]
         
         # Shuffle the cards
         self.drawPile.shuffleCards()
@@ -420,6 +445,13 @@ class Game:
                 
         # Update players pile
         self.drawPlayersCards(player)                              
+
+        # Check if card played is a wild card
+        if selected_card.value in self.WILDCARDS:            
+            colour_chooser = DialogChooseColour(self.canvas)
+            self.canvas.wait_window(colour_chooser.top)
+            colour_choice = colour_chooser.colourChoice           
+            self.discardPile.getTopCard().colour = colour_choice
 
         # Check if card played is a skip card        
         if selected_card.value in self.SKIPCARDS:
@@ -537,4 +569,6 @@ root = Tk()
 app = GameWindow(root)
 
 root.mainloop()
-root.destroy() # optional; see description below
+
+if app:
+    root.destroy() # optional; see description below
