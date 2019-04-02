@@ -362,24 +362,40 @@ class Game:
         self.placeFirstCard()
 
         # Player 1 Area        
-        self.player1Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="orange",pady=10,highlightthickness=2,text=self.players[0].name+"'s Cards")
-        player1Scroll = Scrollbar(self.player1Frame)
+        self.player1Frame = LabelFrame(master=self.canvas,height=240,width=10000,borderwidth=2,background="orange",pady=10,highlightthickness=2,text=self.players[0].name+"'s Cards")
         self.player1Frame.pack(side=BOTTOM)
-        self.player1Frame.pack_propagate(False)       
-        self.drawCards(self.players[0], self.player1Frame, self.player1Pile, self.player1PileImages)
-        
+        self.player1Frame.pack_propagate(False)             
 
-        #self.player1Canvas = Canvas(self.canvas, height=200, width=1000)
-        #self.player1Canvas.config(scrollregion=self.player1Canvas.bbox(ALL))
-        #self.player1Canvas.pack(anchor=S)
+        self.player1Canvas = Canvas(self.player1Frame, height=220, width=90000, scrollregion=(0, 0, "2000", "220"))
+
+        self.player1Canvas.scrollX = Scrollbar(self.player1Frame, orient=HORIZONTAL)
+        self.player1Canvas['xscrollcommand'] = self.player1Canvas.scrollX.set
+        self.player1Canvas.scrollX['command'] = self.player1Canvas.xview
+
+        self.player1Canvas.scrollX.pack(side=BOTTOM, fill=X)
+
+        self.player1Canvas.pack(side=LEFT)       
+       
+        self.drawCards(self.players[0], self.player1Canvas, self.player1Pile, self.player1PileImages)
+        
         
         if len(self.players) > 1:
             # Player 2 Area
-            self.player2Frame = LabelFrame(master=self.canvas,height=220,width=1200,borderwidth=2,background="coral",pady=10,highlightthickness=2,text=self.players[1].name+"'s Cards")
-            player2Scroll = Scrollbar(self.player1Frame)
+            self.player2Frame = LabelFrame(master=self.canvas,height=240,width=10000,borderwidth=2,background="coral",pady=10,highlightthickness=2,text=self.players[1].name+"'s Cards")            
             self.player2Frame.pack(side=TOP)
             self.player2Frame.pack_propagate(False)
-            self.drawCards(self.players[1], self.player2Frame, self.player2Pile, self.player2PileImages)
+
+            self.player2Canvas = Canvas(self.player2Frame, height=220, width=90000, scrollregion=(0, 0, "2000", "220"))
+
+            self.player2Canvas.scrollX = Scrollbar(self.player2Frame, orient=HORIZONTAL)
+            self.player2Canvas['xscrollcommand'] = self.player2Canvas.scrollX.set
+            self.player2Canvas.scrollX['command'] = self.player2Canvas.xview
+
+            self.player2Canvas.scrollX.pack(side=BOTTOM, fill=X)
+
+            self.player2Canvas.pack(side=LEFT)       
+
+            self.drawCards(self.players[1], self.player2Canvas, self.player2Pile, self.player2PileImages)
 
         # Disable cards
         self.disablePlayersCards()
@@ -406,15 +422,18 @@ class Game:
             card_image = PhotoImage(file=card.get_image())
             imagepile.append(card_image)
             card_button = Button(frame,image=imagepile[idx],compound=BOTTOM,text=card.get_name(),padx=5,command=lambda i=idx: self.cardCallback(i,player,pile))
+            frame.create_window(0, 0, window = card_button)
             pile.append(card_button)
-            pile[idx].pack(side=LEFT)        
+            pile[idx].pack(side=LEFT)  
+            
+           # frame.configure(scrollregion=frame.bbox("all"))
     
     def drawPlayersCards(self, player):
         # Update players pile
         if player.playerid == 1:
-            self.drawCards(player, self.player1Frame, self.player1Pile, self.player1PileImages)
+            self.drawCards(player, self.player1Canvas, self.player1Pile, self.player1PileImages)
         else:
-            self.drawCards(player, self.player2Frame, self.player2Pile, self.player2PileImages)
+            self.drawCards(player, self.player2Canvas, self.player2Pile, self.player2PileImages)
 
     def updateDiscardPile(self, selected_card):
         # Update discard pile
@@ -510,6 +529,11 @@ class Game:
 
     def next_turn(self, skipPlayers=False):  
         self.updateDrawPile()
+
+        # Declare UNO
+        if len(self.currentPlayer.hand.getCards()) == 1:
+            self.status.set(self.currentPlayer.name  + " declares UNO!")
+
         if not self.currentPlayer.hand.getCards():
             self.status.set("WIN - " + self.currentPlayer.name)
             self.endGame()
