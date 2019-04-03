@@ -411,18 +411,18 @@ class Game:
         self.updateDiscardPile(firstcard)
         self.updateDrawPile()
 
-    def drawCards(self, player, frame, pile, imagepile):
+    def drawCards(self, player, canvas, pile, imagepile):
         imagepile.clear()
         pile.clear()
 
-        for widget in frame.winfo_children():
+        for widget in canvas.winfo_children():
             widget.destroy()
 
         for idx,card in enumerate(player.hand.getCards()):
             card_image = PhotoImage(file=card.get_image())
             imagepile.append(card_image)
-            card_button = Button(frame,image=imagepile[idx],compound=BOTTOM,text=card.get_name(),padx=5,command=lambda i=idx: self.cardCallback(i,player,pile))
-            frame.create_window(0, 0, window = card_button)
+            card_button = Button(canvas,image=imagepile[idx],compound=BOTTOM,text=card.get_name(),padx=5,command=lambda i=idx: self.cardCallback(i,player,pile))
+            canvas.create_window(0, 0, window = card_button)
             pile.append(card_button)
             pile[idx].pack(side=LEFT)  
             
